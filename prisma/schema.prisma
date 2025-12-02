@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  HR
+}
+
+enum PositionStatus {
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+enum InterviewStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+}
+
+enum HRDecision {
+  PENDING
+  PASSED
+  REJECTED
+  HOLD
+}
+
+enum Recommendation {
+  RECOMMENDED
+  CAUTIOUS
+  NOT_RECOMMENDED
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  name      String
+  role      UserRole   @default(HR)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  positions Position[]
+}
+
+model InterviewTemplate {
+  id            String     @id @default(cuid())
+  name          String     @unique
+  description   String?
+  questionCount Int        @default(5)
+  dimensions    Json       @default("[\"专业能力\", \"沟通表达\", \"逻辑思维\", \"执行力\", \"职业动机\"]")
+  systemPrompt  String     @db.Text
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  positions     Position[]
+}
+
+model Position {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  status      PositionStatus    @default(ACTIVE)
+  templateId  String
+  template    InterviewTemplate @relation(fields: [templateId], references: [id])
+  createdById String
+  createdBy   User              @relation(fields: [createdById], references: [id])
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  interviews  Interview[]
+}
+
+model Interview {
+  id             String          @id @default(cuid())
+  token          String          @unique
+  candidateName  String
+  candidateEmail String?
+  candidatePhone String?
+  positionId     String
+  position       Position        @relation(fields: [positionId], references: [id])
+  status         InterviewStatus @default(PENDING)
+  currentRound   Int             @default(0)
+  maxRounds      Int             @default(5)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  hrDecision     HRDecision?
+  hrComment      String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  rounds         InterviewRound[]
+  report         InterviewReport?
+}
+
+model InterviewRound {
+  id               String    @id @default(cuid())
+  interviewId      String
+  interview        Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  roundNumber      Int
+  dimension        String
+  questionText     String    @db.Text
+  questionAudioUrl String?
+  answerText       String?   @db.Text
+  answerAudioUrl   String?
+  score            Float?
+  evaluation       String?   @db.Text
+  durationSeconds  Int?
+  createdAt        DateTime  @default(now())
+
+  @@unique([interviewId, roundNumber])
+}
+
+model InterviewReport {
+  id              String         @id @default(cuid())
+  interviewId     String         @unique
+  interview       Interview      @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  dimensionScores Json
+  strengths       Json
+  risks           Json
+  recommendation  Recommendation
+  summary         String         @db.Text
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
