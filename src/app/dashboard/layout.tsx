@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Briefcase, Users, LogOut } from 'lucide-react'
+import { LayoutDashboard, Briefcase, Users, FileText, LogOut } from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard', label: '概览', icon: LayoutDashboard },
   { href: '/dashboard/positions', label: '岗位管理', icon: Briefcase },
   { href: '/dashboard/interviews', label: '面试管理', icon: Users },
+  { href: '/dashboard/templates', label: '模板管理', icon: FileText },
 ]
 
 export default function DashboardLayout({

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { transcribeAudio } from '@/lib/ai/asr'
-import { evaluateAnswer, generateQuestion, generateReport } from '@/lib/ai/llm'
+import { evaluateAnswer, generateQuestionSmart, generateReport, InterviewContext } from '@/lib/ai/llm'
 import { synthesizeSpeech } from '@/lib/ai/tts'
 import { uploadAudio, getAudioUrl } from '@/lib/storage/minio'
 
@@ -71,8 +71,52 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     },
   })
 
-  // 检查是否完成所有轮次
-  const isComplete = currentRound.roundNumber >= interview.maxRounds
+  // 计算已覆盖的维度
+  const template = interview.position.template
+  const dimensions = template.dimensions as string[]
+  const coveredDimensions = [...new Set(interview.rounds.map((r) => r.dimension))]
+
+  // 构建对话历史
+  const previousQA = interview.rounds.map((r) => ({
+    question: r.questionText,
+    answer: r.answerText || '',
+    dimension: r.dimension,
+  }))
+  previousQA.push({
+    question: currentRound.questionText,
+    answer: answerText,
+    dimension: currentRound.dimension,
+  })
+
+  // 更新已覆盖维度（包含当前轮次）
+  if (!coveredDimensions.includes(currentRound.dimension)) {
+    coveredDimensions.push(currentRound.dimension)
+  }
+
+  const questionTemplates = template.questionTemplates as Array<{
+    dimension: string
+    sampleQuestions: string[]
+  }> | null
+
+  // 构建面试上下文
+  const context: InterviewContext = {
+    positionName: interview.position.name,
+    systemPrompt: template.systemPrompt,
+    allDimensions: dimensions,
+    coveredDimensions,
+    currentRound: currentRound.roundNumber,
+    minRounds: interview.minRounds,
+    maxRounds: interview.maxRounds,
+    previousQA,
+    questionTemplates: questionTemplates || undefined,
+  }
+
+  // 判断是否应该结束面试
+  const allDimensionsCovered = coveredDimensions.length >= dimensions.length
+  const reachedMax = currentRound.roundNumber >= interview.maxRounds
+  const reachedMinAndCovered = currentRound.roundNumber >= interview.minRounds && allDimensionsCovered
+
+  const isComplete = reachedMax || reachedMinAndCovered
 
   if (isComplete) {
     // 生成报告
@@ -96,30 +140,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     })
 
     return NextResponse.json({
-      data: { isComplete: true },
+      data: {
+        isComplete: true,
+        progress: {
+          current: currentRound.roundNumber,
+          min: interview.minRounds,
+          max: interview.maxRounds,
+          coveredDimensions,
+        },
+      },
     })
   }
 
-  // 生成下一个问题
-  const template = interview.position.template
-  const dimensions = template.dimensions as string[]
-  const nextDimension = dimensions[currentRound.roundNumber % dimensions.length] || '综合能力'
-
-  const previousQA = interview.rounds.map((r) => ({
-    question: r.questionText,
-    answer: r.answerText || '',
-  }))
-  previousQA.push({ question: currentRound.questionText, answer: answerText })
-
-  const nextQuestionText = await generateQuestion(
-    interview.position.name,
-    template.systemPrompt,
-    nextDimension,
-    previousQA
-  )
+  // 智能生成下一个问题
+  const result = await generateQuestionSmart(context)
 
   // 生成语音
-  const nextAudioBuffer = await synthesizeSpeech(nextQuestionText)
+  const nextAudioBuffer = await synthesizeSpeech(result.question)
   const nextAudioFilename = `questions/${interview.id}/round-${currentRound.roundNumber + 1}.mp3`
   await uploadAudio(nextAudioFilename, nextAudioBuffer, 'audio/mpeg')
   const nextAudioUrl = await getAudioUrl(nextAudioFilename)
@@ -129,8 +166,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     data: {
       interviewId: interview.id,
       roundNumber: currentRound.roundNumber + 1,
-      dimension: nextDimension,
-      questionText: nextQuestionText,
+      dimension: result.dimension,
+      questionText: result.question,
       questionAudioUrl: `/${process.env.MINIO_BUCKET || 'interview-audio'}/${nextAudioFilename}`,
     },
   })
@@ -140,6 +177,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     data: { currentRound: nextRound.roundNumber },
   })
 
+  // 更新覆盖维度
+  const newCoveredDimensions = coveredDimensions.includes(result.dimension)
+    ? coveredDimensions
+    : [...coveredDimensions, result.dimension]
+
   return NextResponse.json({
     data: {
       isComplete: false,
@@ -148,6 +190,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         questionText: nextRound.questionText,
         questionAudioUrl: nextAudioUrl,
         dimension: nextRound.dimension,
+      },
+      progress: {
+        current: nextRound.roundNumber,
+        min: interview.minRounds,
+        max: interview.maxRounds,
+        coveredDimensions: newCoveredDimensions,
       },
     },
   })

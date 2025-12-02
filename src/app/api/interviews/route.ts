@@ -68,7 +68,8 @@ export async function POST(request: NextRequest) {
       candidateName,
       candidateEmail,
       candidatePhone,
-      maxRounds: position.template.questionCount,
+      minRounds: position.template.minQuestions,
+      maxRounds: position.template.maxQuestions,
     },
     include: { position: true },
   })

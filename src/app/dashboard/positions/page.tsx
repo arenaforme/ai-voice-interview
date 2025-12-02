@@ -27,7 +27,8 @@ import { Plus, Loader2 } from 'lucide-react'
 interface Template {
   id: string
   name: string
-  questionCount: number
+  minQuestions: number
+  maxQuestions: number
 }
 
 interface Position {
@@ -145,7 +146,7 @@ export default function PositionsPage() {
                   <SelectContent>
                     {templates.map((tpl) => (
                       <SelectItem key={tpl.id} value={tpl.id}>
-                        {tpl.name} ({tpl.questionCount}题)
+                        {tpl.name} ({tpl.minQuestions}-{tpl.maxQuestions}题)
                       </SelectItem>
                     ))}
                   </SelectContent>

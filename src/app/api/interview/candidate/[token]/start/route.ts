@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { generateQuestion } from '@/lib/ai/llm'
+import { generateQuestionSmart, InterviewContext } from '@/lib/ai/llm'
 import { synthesizeSpeech } from '@/lib/ai/tts'
 import { uploadAudio, getAudioUrl } from '@/lib/storage/minio'
 
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     where: { token },
     include: {
       position: { include: { template: true } },
-      rounds: true,
+      rounds: { orderBy: { roundNumber: 'asc' } },
     },
   })
 
@@ -44,33 +44,54 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             questionAudioUrl: audioUrl,
             dimension: lastRound.dimension,
           },
+          progress: {
+            current: interview.currentRound,
+            min: interview.minRounds,
+            max: interview.maxRounds,
+          },
         },
       })
     }
   }
 
-  // 更新面试状态
+  const template = interview.position.template
+  const dimensions = template.dimensions as string[]
+  const questionTemplates = template.questionTemplates as Array<{
+    dimension: string
+    sampleQuestions: string[]
+  }> | null
+
+  // 更新面试状态和问题数配置
   if (interview.status === 'PENDING') {
     await prisma.interview.update({
       where: { id: interview.id },
-      data: { status: 'IN_PROGRESS', startedAt: new Date() },
+      data: {
+        status: 'IN_PROGRESS',
+        startedAt: new Date(),
+        minRounds: template.minQuestions,
+        maxRounds: template.maxQuestions,
+      },
     })
   }
 
-  // 生成第一个问题
-  const template = interview.position.template
-  const dimensions = template.dimensions as string[]
-  const dimension = dimensions[0] || '综合能力'
+  // 构建面试上下文
+  const context: InterviewContext = {
+    positionName: interview.position.name,
+    systemPrompt: template.systemPrompt,
+    allDimensions: dimensions,
+    coveredDimensions: [],
+    currentRound: 0,
+    minRounds: template.minQuestions,
+    maxRounds: template.maxQuestions,
+    previousQA: [],
+    questionTemplates: questionTemplates || undefined,
+  }
 
-  const questionText = await generateQuestion(
-    interview.position.name,
-    template.systemPrompt,
-    dimension,
-    []
-  )
+  // 智能生成第一个问题
+  const result = await generateQuestionSmart(context)
 
   // 生成语音
-  const audioBuffer = await synthesizeSpeech(questionText)
+  const audioBuffer = await synthesizeSpeech(result.question)
   const audioFilename = `questions/${interview.id}/round-1.mp3`
   await uploadAudio(audioFilename, audioBuffer, 'audio/mpeg')
   const audioUrl = await getAudioUrl(audioFilename)
@@ -80,8 +101,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     data: {
       interviewId: interview.id,
       roundNumber: 1,
-      dimension,
-      questionText,
+      dimension: result.dimension,
+      questionText: result.question,
       questionAudioUrl: `/${process.env.MINIO_BUCKET || 'interview-audio'}/${audioFilename}`,
     },
   })
@@ -98,6 +119,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         questionText: round.questionText,
         questionAudioUrl: audioUrl,
         dimension: round.dimension,
+      },
+      progress: {
+        current: 1,
+        min: template.minQuestions,
+        max: template.maxQuestions,
       },
     },
   })

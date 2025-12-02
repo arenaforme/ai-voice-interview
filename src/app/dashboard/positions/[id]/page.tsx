@@ -33,7 +33,7 @@ interface Position {
   name: string
   description: string | null
   status: string
-  template: { name: string; questionCount: number }
+  template: { name: string; minQuestions: number; maxQuestions: number }
   interviews: Interview[]
 }
 
@@ -151,7 +151,7 @@ export default function PositionDetailPage({
         <CardContent className="space-y-2 text-sm">
           <p>
             <span className="text-muted-foreground">面试模板：</span>
-            {position.template.name} ({position.template.questionCount}题)
+            {position.template.name} ({position.template.minQuestions}-{position.template.maxQuestions}题)
           </p>
           {position.description && (
             <p>

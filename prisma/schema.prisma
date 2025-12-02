@@ -50,15 +50,17 @@ model User {
 }
 
 model InterviewTemplate {
-  id            String     @id @default(cuid())
-  name          String     @unique
-  description   String?
-  questionCount Int        @default(5)
-  dimensions    Json       @default("[\"专业能力\", \"沟通表达\", \"逻辑思维\", \"执行力\", \"职业动机\"]")
-  systemPrompt  String     @db.Text
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  positions     Position[]
+  id                String     @id @default(cuid())
+  name              String     @unique
+  description       String?
+  minQuestions      Int        @default(5)  // 最少问题数（确保覆盖所有维度）
+  maxQuestions      Int        @default(10) // 最多问题数
+  dimensions        Json       @default("[\"专业能力\", \"沟通表达\", \"逻辑思维\", \"执行力\", \"职业动机\"]")
+  questionTemplates Json?      // 每个维度的示例问题模板
+  systemPrompt      String     @db.Text
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  positions         Position[]
 }
 
 model Position {
@@ -85,7 +87,8 @@ model Interview {
   position       Position        @relation(fields: [positionId], references: [id])
   status         InterviewStatus @default(PENDING)
   currentRound   Int             @default(0)
-  maxRounds      Int             @default(5)
+  minRounds      Int             @default(5)  // 最少问题数
+  maxRounds      Int             @default(10) // 最多问题数
   startedAt      DateTime?
   completedAt    DateTime?
   hrDecision     HRDecision?

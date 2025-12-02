@@ -14,6 +14,7 @@ interface InterviewState {
   candidateName: string
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
   currentRound: number
+  minRounds: number
   maxRounds: number
   currentQuestion: {
     roundNumber: number
@@ -81,6 +82,8 @@ export default function InterviewPage({
               ...prev,
               status: 'IN_PROGRESS',
               currentRound: 1,
+              minRounds: data.data.progress?.min || prev.minRounds,
+              maxRounds: data.data.progress?.max || prev.maxRounds,
               currentQuestion: data.data.question,
             }
           : null
@@ -219,7 +222,7 @@ export default function InterviewPage({
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>候选人：{state.candidateName}</span>
               <span>
-                进度：{state.currentRound}/{state.maxRounds}
+                第 {state.currentRound} 题（{state.minRounds}-{state.maxRounds} 题）
               </span>
             </div>
             <Progress
@@ -259,29 +262,35 @@ export default function InterviewPage({
             {/* 问题卡片 */}
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-base">
-                    第 {state.currentQuestion.roundNumber} 题
-                  </CardTitle>
-                  <span className="text-sm text-muted-foreground">
-                    {state.currentQuestion.dimension}
-                  </span>
-                </div>
+                <CardTitle className="text-base text-center">
+                  第 {state.currentQuestion.roundNumber} 题
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p>{state.currentQuestion.questionText}</p>
+                <div className="flex flex-col items-center justify-center py-4">
+                  {playingAudio ? (
+                    <div className="flex items-center gap-2 text-primary">
+                      <Volume2 className="h-6 w-6 animate-pulse" />
+                      <span>正在播放问题...</span>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">请仔细听取问题</p>
+                  )}
+                </div>
                 {state.currentQuestion.questionAudioUrl && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      playQuestionAudio(state.currentQuestion!.questionAudioUrl!)
-                    }
-                    disabled={playingAudio}
-                  >
-                    <Volume2 className="h-4 w-4 mr-2" />
-                    {playingAudio ? '播放中...' : '重新播放'}
-                  </Button>
+                  <div className="flex justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        playQuestionAudio(state.currentQuestion!.questionAudioUrl!)
+                      }
+                      disabled={playingAudio}
+                    >
+                      <Volume2 className="h-4 w-4 mr-2" />
+                      {playingAudio ? '播放中...' : '重新播放'}
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
