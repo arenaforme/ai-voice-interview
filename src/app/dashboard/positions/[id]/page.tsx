@@ -85,7 +85,7 @@ export default function PositionDetailPage({
 
       const data = await res.json()
       if (res.ok) {
-        const link = `${window.location.origin}/interview/${data.data.token}`
+        const link = `${window.location.origin}/interview-realtime/${data.data.token}`
         setNewLink(link)
         setFormData({ candidateName: '', candidateEmail: '', candidatePhone: '' })
         fetchPosition()
@@ -98,7 +98,7 @@ export default function PositionDetailPage({
   }
 
   const copyLink = (token: string) => {
-    const link = `${window.location.origin}/interview/${token}`
+    const link = `${window.location.origin}/interview-realtime/${token}`
     navigator.clipboard.writeText(link)
     setCopied(token)
     setTimeout(() => setCopied(null), 2000)

@@ -6,8 +6,13 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth
 
   // 公开路由
-  const publicRoutes = ['/login', '/interview']
+  const publicRoutes = ['/login', '/interview', '/interview-realtime']
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route))
+
+  // 首页允许公开访问
+  if (pathname === '/') {
+    return NextResponse.next()
+  }
 
   // API 路由中的公开接口
   const publicApiRoutes = ['/api/auth', '/api/interview/candidate']
