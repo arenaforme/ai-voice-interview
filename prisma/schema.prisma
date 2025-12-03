@@ -39,14 +39,15 @@ enum Recommendation {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
+  id        String              @id @default(cuid())
+  email     String              @unique
   password  String
   name      String
-  role      UserRole   @default(HR)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  role      UserRole            @default(HR)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
   positions Position[]
+  templates InterviewTemplate[] // 用户创建的自定义模板
 }
 
 model InterviewTemplate {
@@ -58,6 +59,10 @@ model InterviewTemplate {
   dimensions        Json       @default("[\"专业能力\", \"沟通表达\", \"逻辑思维\", \"执行力\", \"职业动机\"]")
   questionTemplates Json?      // 每个维度的示例问题模板
   systemPrompt      String     @db.Text
+  isSystem          Boolean    @default(false)  // 是否系统模板
+  isActive          Boolean    @default(true)   // 是否可用
+  createdById       String?                     // 创建者ID（自定义模板）
+  createdBy         User?      @relation(fields: [createdById], references: [id])
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   positions         Position[]

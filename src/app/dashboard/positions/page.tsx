@@ -29,6 +29,8 @@ interface Template {
   name: string
   minQuestions: number
   maxQuestions: number
+  isSystem: boolean
+  isActive: boolean
 }
 
 interface Position {
@@ -62,7 +64,7 @@ export default function PositionsPage() {
     try {
       const [posRes, tplRes] = await Promise.all([
         fetch('/api/positions'),
-        fetch('/api/templates'),
+        fetch('/api/templates?isActive=true'),  // 只获取可用模板
       ])
       const posData = await posRes.json()
       const tplData = await tplRes.json()
@@ -144,7 +146,24 @@ export default function PositionsPage() {
                     <SelectValue placeholder="选择面试模板" />
                   </SelectTrigger>
                   <SelectContent>
-                    {templates.map((tpl) => (
+                    {/* 系统模板 */}
+                    {templates.filter(t => t.isSystem).length > 0 && (
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                        系统模板
+                      </div>
+                    )}
+                    {templates.filter(t => t.isSystem).map((tpl) => (
+                      <SelectItem key={tpl.id} value={tpl.id}>
+                        {tpl.name} ({tpl.minQuestions}-{tpl.maxQuestions}题)
+                      </SelectItem>
+                    ))}
+                    {/* 自定义模板 */}
+                    {templates.filter(t => !t.isSystem).length > 0 && (
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">
+                        自定义模板
+                      </div>
+                    )}
+                    {templates.filter(t => !t.isSystem).map((tpl) => (
                       <SelectItem key={tpl.id} value={tpl.id}>
                         {tpl.name} ({tpl.minQuestions}-{tpl.maxQuestions}题)
                       </SelectItem>

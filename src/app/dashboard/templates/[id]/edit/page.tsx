@@ -5,8 +5,12 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Plus, Trash2, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, Plus, Trash2, ChevronDown, ChevronRight, RotateCcw, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
 
 interface QuestionTemplate {
   dimension: string
@@ -17,8 +21,13 @@ interface Template {
   id: string
   name: string
   description: string | null
+  minQuestions: number
+  maxQuestions: number
   dimensions: string[]
   questionTemplates: QuestionTemplate[] | null
+  systemPrompt: string
+  isSystem: boolean
+  isActive: boolean
 }
 
 export default function EditTemplatePage({
@@ -35,6 +44,13 @@ export default function EditTemplatePage({
   const [error, setError] = useState('')
   const [expandedDimensions, setExpandedDimensions] = useState<Set<string>>(new Set())
 
+  // 自定义模板的额外字段
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [minQuestions, setMinQuestions] = useState(5)
+  const [maxQuestions, setMaxQuestions] = useState(10)
+  const [systemPrompt, setSystemPrompt] = useState('')
+
   useEffect(() => {
     fetchTemplate()
   }, [id])
@@ -45,9 +61,16 @@ export default function EditTemplatePage({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
-      setTemplate(data.data)
-      const dims = data.data.dimensions as string[]
-      const existingQuestions = data.data.questionTemplates as QuestionTemplate[] | null
+      const tpl = data.data as Template
+      setTemplate(tpl)
+      setName(tpl.name)
+      setDescription(tpl.description || '')
+      setMinQuestions(tpl.minQuestions)
+      setMaxQuestions(tpl.maxQuestions)
+      setSystemPrompt(tpl.systemPrompt)
+
+      const dims = tpl.dimensions as string[]
+      const existingQuestions = tpl.questionTemplates as QuestionTemplate[] | null
 
       // 初始化问题模板
       const initialQuestions = dims.map(dim => {
@@ -93,20 +116,57 @@ export default function EditTemplatePage({
     }
   }
 
+  // 自定义模板：添加/删除维度
+  const addDimension = () => {
+    setQuestions([...questions, { dimension: '', sampleQuestions: [''] }])
+  }
+
+  const removeDimension = (index: number) => {
+    if (questions.length > 1) {
+      setQuestions(questions.filter((_, i) => i !== index))
+    }
+  }
+
+  const updateDimensionName = (index: number, value: string) => {
+    const newQuestions = [...questions]
+    newQuestions[index].dimension = value
+    setQuestions(newQuestions)
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setError('')
     try {
       // 过滤空问题
-      const filtered = questions.map(q => ({
-        ...q,
-        sampleQuestions: q.sampleQuestions.filter(s => s.trim())
-      }))
+      const filtered = questions
+        .filter(q => q.dimension.trim())
+        .map(q => ({
+          ...q,
+          sampleQuestions: q.sampleQuestions.filter(s => s.trim())
+        }))
+        .filter(q => q.sampleQuestions.length > 0)
 
-      const res = await fetch(`/api/templates/${id}/questions`, {
+      const dimensions = filtered.map(q => q.dimension)
+
+      // 构建请求体
+      const body: Record<string, unknown> = {
+        questionTemplates: filtered,
+      }
+
+      // 自定义模板可以修改更多字段
+      if (!template?.isSystem) {
+        body.name = name
+        body.description = description
+        body.minQuestions = minQuestions
+        body.maxQuestions = maxQuestions
+        body.dimensions = dimensions
+        body.systemPrompt = systemPrompt
+      }
+
+      const res = await fetch(`/api/templates/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionTemplates: filtered }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -151,18 +211,37 @@ export default function EditTemplatePage({
     )
   }
 
+  const isSystem = template.isSystem
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">编辑面试模板</h1>
-          <p className="text-muted-foreground">{template.name}</p>
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/templates">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              返回
+            </Button>
+          </Link>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">编辑面试模板</h1>
+              <Badge variant={isSystem ? 'default' : 'secondary'}>
+                {isSystem ? '系统模板' : '自定义模板'}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground">
+              {isSystem ? '系统模板仅可编辑问题内容' : '可编辑所有字段'}
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleReset}>
-            <RotateCcw className="h-4 w-4 mr-2" />
-            恢复默认
-          </Button>
+          {isSystem && (
+            <Button variant="outline" onClick={handleReset}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              恢复默认
+            </Button>
+          )}
           <Button variant="outline" onClick={() => router.back()}>
             取消
           </Button>
@@ -179,61 +258,168 @@ export default function EditTemplatePage({
         </Alert>
       )}
 
-      <div className="space-y-4">
-        {questions.map((q, dimIndex) => (
-          <Card key={q.dimension}>
-            <CardHeader
-              className="cursor-pointer"
-              onClick={() => toggleDimension(q.dimension)}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {expandedDimensions.has(q.dimension) ? (
+      {/* 自定义模板：基本信息 */}
+      {!isSystem && (
+        <Card>
+          <CardHeader>
+            <CardTitle>基本信息</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">模板名称</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">模板描述</Label>
+                <Input
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="minQuestions">最少问题数</Label>
+                <Input
+                  id="minQuestions"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={minQuestions}
+                  onChange={(e) => setMinQuestions(Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxQuestions">最多问题数</Label>
+                <Input
+                  id="maxQuestions"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={maxQuestions}
+                  onChange={(e) => setMaxQuestions(Number(e.target.value))}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 问题模板 */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>评估维度与示例问题</CardTitle>
+          {!isSystem && (
+            <Button type="button" variant="outline" size="sm" onClick={addDimension}>
+              <Plus className="h-4 w-4 mr-2" />
+              添加维度
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {questions.map((q, dimIndex) => (
+            <div key={dimIndex} className="border rounded-lg">
+              <div
+                className="p-4 cursor-pointer flex items-center justify-between"
+                onClick={() => toggleDimension(q.dimension || `dim-${dimIndex}`)}
+              >
+                <div className="flex items-center gap-2 flex-1">
+                  {expandedDimensions.has(q.dimension || `dim-${dimIndex}`) ? (
                     <ChevronDown className="h-4 w-4" />
                   ) : (
                     <ChevronRight className="h-4 w-4" />
                   )}
-                  <CardTitle className="text-base">{q.dimension}</CardTitle>
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  {q.sampleQuestions.filter(s => s.trim()).length} 个问题
-                </span>
-              </div>
-            </CardHeader>
-            {expandedDimensions.has(q.dimension) && (
-              <CardContent className="space-y-3">
-                {q.sampleQuestions.map((question, qIndex) => (
-                  <div key={qIndex} className="flex gap-2">
-                    <span className="text-muted-foreground w-6 pt-2">{qIndex + 1}.</span>
+                  {!isSystem ? (
                     <Input
-                      value={question}
-                      onChange={(e) => updateQuestion(dimIndex, qIndex, e.target.value)}
-                      placeholder="输入示例问题..."
+                      value={q.dimension}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        updateDimensionName(dimIndex, e.target.value)
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="维度名称"
+                      className="max-w-[200px]"
                     />
+                  ) : (
+                    <span className="font-medium">{q.dimension}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    {q.sampleQuestions.filter(s => s.trim()).length} 个问题
+                  </span>
+                  {!isSystem && questions.length > 1 && (
                     <Button
                       variant="ghost"
-                      size="icon"
-                      onClick={() => removeQuestion(dimIndex, qIndex)}
-                      disabled={q.sampleQuestions.length <= 1}
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeDimension(dimIndex)
+                      }}
+                      className="text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addQuestion(dimIndex)}
-                  className="ml-6"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  添加问题
-                </Button>
-              </CardContent>
-            )}
-          </Card>
-        ))}
-      </div>
+                  )}
+                </div>
+              </div>
+              {expandedDimensions.has(q.dimension || `dim-${dimIndex}`) && (
+                <div className="px-4 pb-4 space-y-3">
+                  {q.sampleQuestions.map((question, qIndex) => (
+                    <div key={qIndex} className="flex gap-2">
+                      <span className="text-muted-foreground w-6 pt-2">{qIndex + 1}.</span>
+                      <Input
+                        value={question}
+                        onChange={(e) => updateQuestion(dimIndex, qIndex, e.target.value)}
+                        placeholder="输入示例问题..."
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeQuestion(dimIndex, qIndex)}
+                        disabled={q.sampleQuestions.length <= 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addQuestion(dimIndex)}
+                    className="ml-6"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    添加问题
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* 自定义模板：系统提示词 */}
+      {!isSystem && (
+        <Card>
+          <CardHeader>
+            <CardTitle>系统提示词</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              rows={10}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
