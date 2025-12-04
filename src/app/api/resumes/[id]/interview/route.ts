@@ -30,7 +30,15 @@ export async function POST(
     }
 
     // 使用解析出的候选人姓名，如果没有则使用文件名
-    const candidateName = resume.candidateName || resume.fileName.replace(/\.[^/.]+$/, '')
+    const baseName = resume.candidateName || resume.fileName.replace(/\.[^/.]+$/, '')
+
+    // 查询该简历已有的面试数量，用于生成区分名称
+    const existingCount = await prisma.interview.count({
+      where: { resumeId },
+    })
+
+    // 如果已有面试，添加序号区分
+    const candidateName = existingCount > 0 ? `${baseName} #${existingCount + 1}` : baseName
 
     // 生成唯一 token
     const token = nanoid(32)

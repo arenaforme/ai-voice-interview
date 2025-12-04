@@ -19,6 +19,16 @@ import type { Resume } from '@/types'
 import { ResumeUploadDialog } from './ResumeUploadDialog'
 import { ResumePreviewDialog } from './ResumePreviewDialog'
 import { ResumeNotesDialog } from './ResumeNotesDialog'
+import { ExistingInterviewsDialog } from './ExistingInterviewsDialog'
+
+interface ExistingInterview {
+  id: string
+  token: string
+  candidateName: string
+  status: string
+  createdAt: string
+  completedAt: string | null
+}
 
 interface ResumeCardProps {
   positionId: string
@@ -34,6 +44,9 @@ export function ResumeCard({ positionId, onInterviewCreated }: ResumeCardProps) 
   const [previewResume, setPreviewResume] = useState<Resume | null>(null)
   const [notesResume, setNotesResume] = useState<Resume | null>(null)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
+  const [existingDialogOpen, setExistingDialogOpen] = useState(false)
+  const [existingInterviews, setExistingInterviews] = useState<ExistingInterview[]>([])
+  const [pendingResumeId, setPendingResumeId] = useState<string | null>(null)
 
   // 获取简历列表
   const fetchResumes = useCallback(async () => {
@@ -96,8 +109,33 @@ export function ResumeCard({ positionId, onInterviewCreated }: ResumeCardProps) 
     }
   }
 
-  // 生成面试链接
+  // 检查已有面试并决定是否显示对话框
   const handleGenerateInterview = async (resumeId: string) => {
+    setGeneratingId(resumeId)
+    try {
+      // 先检查是否有已存在的面试
+      const checkRes = await fetch(`/api/resumes/${resumeId}/interviews`)
+      const checkData = await checkRes.json()
+
+      if (checkRes.ok && checkData.data?.length > 0) {
+        // 有已存在的面试，显示对话框
+        setExistingInterviews(checkData.data)
+        setPendingResumeId(resumeId)
+        setExistingDialogOpen(true)
+        setGeneratingId(null)
+        return
+      }
+
+      // 没有已存在的面试，直接创建
+      await createNewInterview(resumeId)
+    } catch (error) {
+      console.error('检查面试链接失败:', error)
+      setGeneratingId(null)
+    }
+  }
+
+  // 创建新面试链接
+  const createNewInterview = async (resumeId: string) => {
     setGeneratingId(resumeId)
     try {
       const res = await fetch(`/api/resumes/${resumeId}/interview`, {
@@ -115,7 +153,17 @@ export function ResumeCard({ positionId, onInterviewCreated }: ResumeCardProps) 
       console.error('生成面试链接失败:', error)
     } finally {
       setGeneratingId(null)
+      setExistingDialogOpen(false)
+      setPendingResumeId(null)
     }
+  }
+
+  // 复制已有面试链接
+  const handleCopyExistingLink = async (token: string) => {
+    const link = `${window.location.origin}/interview-realtime/${token}`
+    await navigator.clipboard.writeText(link)
+    alert('面试链接已复制到剪贴板')
+    setExistingDialogOpen(false)
   }
 
   // 解析状态映射
@@ -222,6 +270,16 @@ export function ResumeCard({ positionId, onInterviewCreated }: ResumeCardProps) 
           onClose={() => setNotesResume(null)}
         />
       )}
+
+      {/* 已有面试链接对话框 */}
+      <ExistingInterviewsDialog
+        open={existingDialogOpen}
+        onOpenChange={setExistingDialogOpen}
+        interviews={existingInterviews}
+        onCreateNew={() => pendingResumeId && createNewInterview(pendingResumeId)}
+        onCopyLink={handleCopyExistingLink}
+        creating={generatingId !== null}
+      />
     </>
   )
 }
