@@ -1,13 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk'
+import openai from './openai'
 import mammoth from 'mammoth'
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  // 强制使用官方 API 地址，忽略系统环境变量
-  baseURL: 'https://api.anthropic.com',
-})
-
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'
+// 使用环境变量配置模型，支持 OpenAI 兼容 API
+const MODEL = process.env.OPENAI_MODEL || 'gpt-4o'
 
 export interface ParsedResume {
   candidateName: string | null
@@ -131,7 +126,7 @@ export async function parseResumeWithAI(text: string): Promise<ParsedResume> {
   // 限制文本长度，避免 token 超限
   const truncatedText = text.slice(0, 15000)
 
-  const response = await anthropic.messages.create({
+  const response = await openai.chat.completions.create({
     model: MODEL,
     max_tokens: 1024,
     messages: [
@@ -142,13 +137,13 @@ export async function parseResumeWithAI(text: string): Promise<ParsedResume> {
     ],
   })
 
-  const content = response.content[0]
-  if (content.type !== 'text') {
+  const content = response.choices[0]?.message?.content
+  if (!content) {
     throw new Error('Unexpected response type')
   }
 
   // 提取 JSON
-  const jsonMatch = content.text.match(/\{[\s\S]*\}/)
+  const jsonMatch = content.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
     throw new Error('Failed to extract JSON from response')
   }

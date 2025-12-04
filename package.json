@@ -21,7 +21,6 @@
     "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.71.0",
     "@auth/prisma-adapter": "^2.11.1",
     "@hookform/resolvers": "^5.2.2",
     "@openai/realtime-api-beta": "github:openai/openai-realtime-api-beta",

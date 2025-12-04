@@ -1,11 +1,12 @@
-import anthropic from './anthropic'
+import openai from './openai'
 import {
   INTERVIEWER_SYSTEM_PROMPT,
   EVALUATOR_SYSTEM_PROMPT,
   REPORT_SYSTEM_PROMPT,
 } from './prompts/interviewer'
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'
+// 使用环境变量配置模型，支持 OpenAI 兼容 API
+const MODEL = process.env.OPENAI_MODEL || 'gpt-4o'
 
 export interface EvaluationResult {
   score: number
@@ -134,25 +135,27 @@ export async function generateQuestionSmart(
 - 绝对不要在 question 中评价候选人之前的回答
 - 问题要自然、简洁，像真人面试官一样提问`
 
-  const response = await anthropic.messages.create({
+  const response = await openai.chat.completions.create({
     model: MODEL,
     max_tokens: 512,
-    system: systemPrompt || INTERVIEWER_SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: prompt }],
+    messages: [
+      { role: 'system', content: systemPrompt || INTERVIEWER_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
   })
 
-  const content = response.content[0]
-  if (content.type !== 'text') {
+  const content = response.choices[0]?.message?.content
+  if (!content) {
     throw new Error('Unexpected response type')
   }
 
   // 解析 JSON 响应
-  const jsonMatch = content.text.match(/\{[\s\S]*\}/)
+  const jsonMatch = content.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
     // 降级处理：使用原始文本作为问题
     const fallbackDimension = uncoveredDimensions[0] || allDimensions[0]
     return {
-      question: content.text.trim(),
+      question: content.trim(),
       dimension: fallbackDimension,
       shouldEnd: false,
     }
@@ -161,7 +164,7 @@ export async function generateQuestionSmart(
   try {
     const result = JSON.parse(jsonMatch[0])
     const dimension = result.dimension || uncoveredDimensions[0] || allDimensions[0]
-    const question = result.question || content.text.trim()
+    const question = result.question || content.trim()
 
     // 判断是否应该结束
     const newCoveredDimensions = coveredDimensions.includes(dimension)
@@ -178,7 +181,7 @@ export async function generateQuestionSmart(
   } catch {
     const fallbackDimension = uncoveredDimensions[0] || allDimensions[0]
     return {
-      question: content.text.trim(),
+      question: content.trim(),
       dimension: fallbackDimension,
       shouldEnd: false,
     }
@@ -222,19 +225,21 @@ export async function generateQuestion(
     prompt += '请根据候选人的回答，自然地继续对话或追问。'
   }
 
-  const response = await anthropic.messages.create({
+  const response = await openai.chat.completions.create({
     model: MODEL,
     max_tokens: 512,
-    system: systemPrompt || INTERVIEWER_SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: prompt }],
+    messages: [
+      { role: 'system', content: systemPrompt || INTERVIEWER_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
   })
 
-  const content = response.content[0]
-  if (content.type !== 'text') {
+  const content = response.choices[0]?.message?.content
+  if (!content) {
     throw new Error('Unexpected response type')
   }
 
-  return content.text.trim()
+  return content.trim()
 }
 
 /**
@@ -257,19 +262,21 @@ export async function evaluateAnswer(
 评分：X分
 评价：...`
 
-  const response = await anthropic.messages.create({
+  const response = await openai.chat.completions.create({
     model: MODEL,
     max_tokens: 512,
-    system: EVALUATOR_SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: prompt }],
+    messages: [
+      { role: 'system', content: EVALUATOR_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
   })
 
-  const content = response.content[0]
-  if (content.type !== 'text') {
+  const content = response.choices[0]?.message?.content
+  if (!content) {
     throw new Error('Unexpected response type')
   }
 
-  const text = content.text
+  const text = content
   const scoreMatch = text.match(/(\d+(?:\.\d+)?)\s*分/)
   const score = scoreMatch ? parseFloat(scoreMatch[1]) : 3
 
@@ -311,20 +318,22 @@ export async function generateReport(
   "summary": "总结评语"
 }`
 
-  const response = await anthropic.messages.create({
+  const response = await openai.chat.completions.create({
     model: MODEL,
     max_tokens: 1024,
-    system: REPORT_SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: prompt }],
+    messages: [
+      { role: 'system', content: REPORT_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
   })
 
-  const content = response.content[0]
-  if (content.type !== 'text') {
+  const content = response.choices[0]?.message?.content
+  if (!content) {
     throw new Error('Unexpected response type')
   }
 
   // 提取 JSON
-  const jsonMatch = content.text.match(/\{[\s\S]*\}/)
+  const jsonMatch = content.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
     // 返回默认报告
     return {
@@ -332,7 +341,7 @@ export async function generateReport(
       strengths: ['待评估'],
       risks: ['待评估'],
       recommendation: 'CAUTIOUS',
-      summary: content.text.slice(0, 200),
+      summary: content.slice(0, 200),
     }
   }
 
@@ -344,7 +353,7 @@ export async function generateReport(
       strengths: ['待评估'],
       risks: ['待评估'],
       recommendation: 'CAUTIOUS',
-      summary: content.text.slice(0, 200),
+      summary: content.slice(0, 200),
     }
   }
 }
