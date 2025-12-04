@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ArrowLeft, Plus, Loader2, Copy, Check } from 'lucide-react'
+import { ResumeCard } from '@/components/resume'
 
 interface Interview {
   id: string
@@ -161,6 +162,9 @@ export default function PositionDetailPage({
           )}
         </CardContent>
       </Card>
+
+      {/* 简历管理卡片 */}
+      <ResumeCard positionId={id} onInterviewCreated={fetchPosition} />
 
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">

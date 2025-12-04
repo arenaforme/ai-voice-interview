@@ -48,6 +48,11 @@ model User {
   updatedAt DateTime            @updatedAt
   positions Position[]
   templates InterviewTemplate[] // 用户创建的自定义模板
+
+  // 简历管理关联
+  resumes      Resume[]     @relation("ResumeCreatedBy")
+  resumeNotes  ResumeNote[] @relation("ResumeNoteCreatedBy")
+  resumeLogs   ResumeLog[]  @relation("ResumeLogOperator")
 }
 
 model InterviewTemplate {
@@ -80,6 +85,7 @@ model Position {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   interviews  Interview[]
+  resumes     Resume[]          // 岗位关联的简历
 }
 
 model Interview {
@@ -102,6 +108,10 @@ model Interview {
   updatedAt      DateTime        @updatedAt
   rounds         InterviewRound[]
   report         InterviewReport?
+
+  // 简历关联（可选，从简历生成的面试链接会有此关联）
+  resumeId       String?
+  resume         Resume?         @relation(fields: [resumeId], references: [id])
 }
 
 model InterviewRound {
@@ -133,4 +143,77 @@ model InterviewReport {
   summary         String         @db.Text
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+}
+
+// ============================================
+// 简历管理相关模型
+// ============================================
+
+enum ParseStatus {
+  PENDING
+  PARSING
+  SUCCESS
+  FAILED
+}
+
+model Resume {
+  id             String      @id @default(cuid())
+
+  // 文件信息
+  fileName       String      // 原始文件名
+  fileKey        String      // MinIO 存储 key
+  fileSize       Int         // 文件大小（字节）
+  mimeType       String      // 文件类型
+
+  // AI 解析字段
+  candidateName  String?     // 候选人姓名
+  phone          String?     // 手机号
+  email          String?     // 邮箱
+  education      String?     // 学历
+  school         String?     // 毕业院校
+  major          String?     // 专业
+  workYears      Int?        // 工作年限
+  expectedSalary String?     // 期望薪资
+  skills         Json?       // 技能标签 ["Java", "Python"]
+  rawText        String?     @db.Text // 简历原文
+  parseStatus    ParseStatus @default(PENDING)
+  parseError     String?     // 解析失败原因
+
+  // 关联
+  positionId     String
+  position       Position    @relation(fields: [positionId], references: [id])
+  createdById    String
+  createdBy      User        @relation("ResumeCreatedBy", fields: [createdById], references: [id])
+
+  interviews     Interview[]
+  notes          ResumeNote[]
+  logs           ResumeLog[]
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model ResumeNote {
+  id          String   @id @default(cuid())
+  content     String   @db.Text
+
+  resumeId    String
+  resume      Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation("ResumeNoteCreatedBy", fields: [createdById], references: [id])
+
+  createdAt   DateTime @default(now())
+}
+
+model ResumeLog {
+  id         String   @id @default(cuid())
+  action     String   // UPLOAD/DELETE/ADD_NOTE/EDIT_INFO/...
+  details    Json?    // 操作详情
+
+  resumeId   String?  // 删除后可能为空
+  resume     Resume?  @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  operatorId String
+  operator   User     @relation("ResumeLogOperator", fields: [operatorId], references: [id])
+
+  createdAt  DateTime @default(now())
 }

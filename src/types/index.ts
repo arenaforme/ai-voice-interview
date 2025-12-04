@@ -50,3 +50,34 @@ export interface SubmitAnswerResponse {
   nextQuestion?: InterviewQuestion
   report?: InterviewReportData
 }
+
+// 简历管理相关类型
+export type ParseStatus = 'PENDING' | 'PARSING' | 'SUCCESS' | 'FAILED'
+
+export interface Resume {
+  id: string
+  fileName: string
+  fileSize: number
+  mimeType: string
+  candidateName: string | null
+  phone: string | null
+  email: string | null
+  education: string | null
+  school: string | null
+  major: string | null
+  workYears: number | null
+  expectedSalary: string | null
+  skills: string[] | null
+  parseStatus: ParseStatus
+  parseError: string | null
+  createdAt: string
+  createdBy: { id: string; name: string | null }
+  _count?: { notes: number; interviews: number }
+}
+
+export interface ResumeNote {
+  id: string
+  content: string
+  createdAt: string
+  createdBy: { id: string; name: string | null }
+}
