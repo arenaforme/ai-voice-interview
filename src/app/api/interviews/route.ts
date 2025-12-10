@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const positionId = searchParams.get('positionId')
   const status = searchParams.get('status')
+  const page = parseInt(searchParams.get('page') || '1')
+  const pageSize = parseInt(searchParams.get('pageSize') || '10')
 
   const where: Record<string, unknown> = {
     position: { createdById: session.user.id },
@@ -21,6 +23,10 @@ export async function GET(request: NextRequest) {
   if (positionId) where.positionId = positionId
   if (status) where.status = status
 
+  // 获取总数
+  const total = await prisma.interview.count({ where })
+
+  // 分页查询
   const interviews = await prisma.interview.findMany({
     where,
     include: {
@@ -29,9 +35,19 @@ export async function GET(request: NextRequest) {
       report: true,
     },
     orderBy: { createdAt: 'desc' },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
   })
 
-  return NextResponse.json({ data: interviews })
+  return NextResponse.json({
+    data: interviews,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  })
 }
 
 // 创建面试（生成面试链接）
@@ -42,7 +58,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { positionId, candidateName, candidateEmail, candidatePhone } = body
+  const { positionId, candidateName, candidateEmail, candidatePhone, mode } = body
 
   if (!positionId || !candidateName) {
     return NextResponse.json({ error: '缺少必填字段' }, { status: 400 })
@@ -70,6 +86,7 @@ export async function POST(request: NextRequest) {
       candidatePhone,
       minRounds: position.template.minQuestions,
       maxRounds: position.template.maxQuestions,
+      mode: mode === 'REALTIME' ? 'REALTIME' : 'MANUAL',
     },
     include: { position: true },
   })

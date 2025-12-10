@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ArrowLeft, Mic } from 'lucide-react'
+import Link from 'next/link'
 
 function LoginForm() {
   const router = useRouter()
@@ -35,7 +36,15 @@ function LoginForm() {
       if (result?.error) {
         setError('邮箱或密码错误')
       } else {
-        router.push(callbackUrl)
+        // 检查是否需要强制修改密码
+        const checkRes = await fetch('/api/auth/check-password-status')
+        const checkData = await checkRes.json()
+
+        if (checkData.mustChangePassword) {
+          router.push('/change-password')
+        } else {
+          router.push(callbackUrl)
+        }
         router.refresh()
       }
     } catch {
@@ -95,16 +104,40 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
+    <div className="min-h-screen bg-white">
+      {/* 顶部导航 */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-100">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex justify-between items-center h-14">
+            <Link href="/" className="flex items-center gap-2 group">
+              <div className="w-8 h-8 rounded-lg bg-neutral-900 flex items-center justify-center">
+                <Mic className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-lg font-semibold text-neutral-900">AI 面试官</span>
+            </Link>
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 text-neutral-500 hover:text-neutral-900 transition-colors text-sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              返回首页
+            </Link>
           </div>
-        }
-      >
-        <LoginForm />
-      </Suspense>
+        </div>
+      </nav>
+
+      {/* 登录表单 */}
+      <div className="min-h-screen flex items-center justify-center pt-14">
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+            </div>
+          }
+        >
+          <LoginForm />
+        </Suspense>
+      </div>
     </div>
   )
 }

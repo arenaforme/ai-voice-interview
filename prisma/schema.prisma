@@ -32,6 +32,12 @@ enum HRDecision {
   HOLD
 }
 
+// 面试模式：手动控制 vs 自然对话
+enum InterviewMode {
+  MANUAL    // 手动模式：候选人手动控制录音
+  REALTIME  // 实时模式：OpenAI Realtime API 自然对话
+}
+
 enum Recommendation {
   RECOMMENDED
   CAUTIOUS
@@ -39,15 +45,16 @@ enum Recommendation {
 }
 
 model User {
-  id        String              @id @default(cuid())
-  email     String              @unique
-  password  String
-  name      String
-  role      UserRole            @default(HR)
-  createdAt DateTime            @default(now())
-  updatedAt DateTime            @updatedAt
-  positions Position[]
-  templates InterviewTemplate[] // 用户创建的自定义模板
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  password           String
+  name               String
+  role               UserRole            @default(HR)
+  mustChangePassword Boolean             @default(true) // 首次登录必须修改密码
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  positions          Position[]
+  templates          InterviewTemplate[] // 用户创建的自定义模板
 
   // 简历管理关联
   resumes      Resume[]     @relation("ResumeCreatedBy")
@@ -97,6 +104,7 @@ model Interview {
   positionId     String
   position       Position        @relation(fields: [positionId], references: [id])
   status         InterviewStatus @default(PENDING)
+  mode           InterviewMode   @default(MANUAL)  // 面试模式
   currentRound   Int             @default(0)
   minRounds      Int             @default(5)  // 最少问题数
   maxRounds      Int             @default(10) // 最多问题数
@@ -136,6 +144,7 @@ model InterviewReport {
   id              String         @id @default(cuid())
   interviewId     String         @unique
   interview       Interview      @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  qaRecords       Json?          // 问答记录：[{dimension, question, answer, score, analysis}]
   dimensionScores Json
   strengths       Json
   risks           Json

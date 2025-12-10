@@ -130,7 +130,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     await prisma.interviewReport.create({
       data: {
         interviewId: interview.id,
-        ...reportData,
+        qaRecords: JSON.parse(JSON.stringify(reportData.qaRecords)),
+        dimensionScores: reportData.dimensionScores,
+        strengths: reportData.strengths,
+        risks: reportData.risks,
+        recommendation: reportData.recommendation,
+        summary: reportData.summary,
       },
     })
 

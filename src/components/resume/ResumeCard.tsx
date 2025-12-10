@@ -13,8 +13,8 @@ import {
   MessageSquare,
   Link as LinkIcon,
   Loader2,
-  RefreshCw,
 } from 'lucide-react'
+import { SimplePagination } from '@/components/ui/simple-pagination'
 import type { Resume } from '@/types'
 import { ResumeUploadDialog } from './ResumeUploadDialog'
 import { ResumePreviewDialog } from './ResumePreviewDialog'
@@ -47,6 +47,10 @@ export function ResumeCard({ positionId, onInterviewCreated }: ResumeCardProps) 
   const [existingDialogOpen, setExistingDialogOpen] = useState(false)
   const [existingInterviews, setExistingInterviews] = useState<ExistingInterview[]>([])
   const [pendingResumeId, setPendingResumeId] = useState<string | null>(null)
+
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 5
 
   // 获取简历列表
   const fetchResumes = useCallback(async () => {
@@ -228,20 +232,27 @@ export function ResumeCard({ positionId, onInterviewCreated }: ResumeCardProps) 
                 <span className="text-sm text-muted-foreground">全选</span>
               </div>
               {/* 简历列表 */}
-              {resumes.map((resume) => (
-                <ResumeItem
-                  key={resume.id}
-                  resume={resume}
-                  selected={selectedIds.has(resume.id)}
-                  onToggle={() => toggleSelect(resume.id)}
-                  onPreview={() => setPreviewResume(resume)}
-                  onNotes={() => setNotesResume(resume)}
-                  onGenerate={() => handleGenerateInterview(resume.id)}
-                  generating={generatingId === resume.id}
-                  parseStatusMap={parseStatusMap}
-                  formatSize={formatSize}
-                />
-              ))}
+              {resumes
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map((resume) => (
+                  <ResumeItem
+                    key={resume.id}
+                    resume={resume}
+                    selected={selectedIds.has(resume.id)}
+                    onToggle={() => toggleSelect(resume.id)}
+                    onPreview={() => setPreviewResume(resume)}
+                    onNotes={() => setNotesResume(resume)}
+                    onGenerate={() => handleGenerateInterview(resume.id)}
+                    generating={generatingId === resume.id}
+                    parseStatusMap={parseStatusMap}
+                    formatSize={formatSize}
+                  />
+                ))}
+              <SimplePagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(resumes.length / pageSize)}
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
         </CardContent>

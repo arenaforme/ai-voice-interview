@@ -14,9 +14,17 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ArrowLeft, Plus, Loader2, Copy, Check } from 'lucide-react'
 import { ResumeCard } from '@/components/resume'
+import { SimplePagination } from '@/components/ui/simple-pagination'
 
 interface Interview {
   id: string
@@ -24,6 +32,7 @@ interface Interview {
   candidateName: string
   candidateEmail: string | null
   status: string
+  mode: 'MANUAL' | 'REALTIME'
   createdAt: string
   completedAt: string | null
   report: { recommendation: string } | null
@@ -55,7 +64,12 @@ export default function PositionDetailPage({
     candidateName: '',
     candidateEmail: '',
     candidatePhone: '',
+    mode: 'REALTIME' as 'MANUAL' | 'REALTIME',
   })
+
+  // 面试列表分页（前端分页）
+  const [interviewPage, setInterviewPage] = useState(1)
+  const interviewPageSize = 5
 
   useEffect(() => {
     fetchPosition()
@@ -86,9 +100,11 @@ export default function PositionDetailPage({
 
       const data = await res.json()
       if (res.ok) {
-        const link = `${window.location.origin}/interview-realtime/${data.data.token}`
+        // 根据模式生成不同的面试链接
+        const path = formData.mode === 'REALTIME' ? 'interview-voice' : 'interview'
+        const link = `${window.location.origin}/${path}/${data.data.token}`
         setNewLink(link)
-        setFormData({ candidateName: '', candidateEmail: '', candidatePhone: '' })
+        setFormData({ candidateName: '', candidateEmail: '', candidatePhone: '', mode: 'REALTIME' })
         fetchPosition()
       }
     } catch (error) {
@@ -98,10 +114,11 @@ export default function PositionDetailPage({
     }
   }
 
-  const copyLink = (token: string) => {
-    const link = `${window.location.origin}/interview-realtime/${token}`
+  const copyLink = (interview: Interview) => {
+    const path = interview.mode === 'REALTIME' ? 'interview-voice' : 'interview'
+    const link = `${window.location.origin}/${path}/${interview.token}`
     navigator.clipboard.writeText(link)
-    setCopied(token)
+    setCopied(interview.token)
     setTimeout(() => setCopied(null), 2000)
   }
 
@@ -252,6 +269,26 @@ export default function PositionDetailPage({
                     placeholder="请输入电话（可选）"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mode">面试模式</Label>
+                  <Select
+                    value={formData.mode}
+                    onValueChange={(value: 'MANUAL' | 'REALTIME') =>
+                      setFormData({ ...formData, mode: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择面试模式" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="REALTIME">实时语音（Realtime API）</SelectItem>
+                      <SelectItem value="MANUAL">传统模式（一问一答）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    实时语音模式支持自然对话，传统模式为逐题问答
+                  </p>
+                </div>
                 <Button
                   className="w-full"
                   onClick={handleCreateInterview}
@@ -274,7 +311,9 @@ export default function PositionDetailPage({
         </Card>
       ) : (
         <div className="space-y-3">
-          {position.interviews.map((interview) => (
+          {position.interviews
+            .slice((interviewPage - 1) * interviewPageSize, interviewPage * interviewPageSize)
+            .map((interview) => (
             <Card key={interview.id}>
               <CardContent className="py-4">
                 <div className="flex justify-between items-center">
@@ -286,6 +325,12 @@ export default function PositionDetailPage({
                         variant="secondary"
                       >
                         {statusMap[interview.status]?.label || interview.status}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={interview.mode === 'REALTIME' ? 'border-purple-500 text-purple-600' : ''}
+                      >
+                        {interview.mode === 'REALTIME' ? '实时语音' : '传统模式'}
                       </Badge>
                       {interview.report && (
                         <Badge variant="outline">
@@ -302,7 +347,7 @@ export default function PositionDetailPage({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => copyLink(interview.token)}
+                      onClick={() => copyLink(interview)}
                     >
                       {copied === interview.token ? (
                         <Check className="h-4 w-4" />
@@ -320,6 +365,11 @@ export default function PositionDetailPage({
               </CardContent>
             </Card>
           ))}
+          <SimplePagination
+            currentPage={interviewPage}
+            totalPages={Math.ceil(position.interviews.length / interviewPageSize)}
+            onPageChange={setInterviewPage}
+          />
         </div>
       )}
     </div>

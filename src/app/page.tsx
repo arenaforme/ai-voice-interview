@@ -1,7 +1,15 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Mic,
   Brain,
@@ -10,10 +18,15 @@ import {
   Shield,
   Smartphone,
   ArrowRight,
-  Play
+  Play,
+  X,
+  MessageSquare,
+  BarChart3,
+  CheckCircle2
 } from 'lucide-react'
 
 export default function HomePage() {
+  const [showDemo, setShowDemo] = useState(false)
   return (
     <div className="min-h-screen bg-white">
       {/* 导航栏 */}
@@ -60,7 +73,12 @@ export default function HomePage() {
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </Link>
-            <Button size="lg" variant="ghost" className="text-neutral-600 hover:text-neutral-900 px-8 h-12 text-base rounded-full">
+            <Button
+              size="lg"
+              variant="ghost"
+              className="text-neutral-600 hover:text-neutral-900 px-8 h-12 text-base rounded-full"
+              onClick={() => setShowDemo(true)}
+            >
               <Play className="mr-2 w-4 h-4" />
               观看演示
             </Button>
@@ -235,6 +253,123 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
+
+      {/* 演示模态框 */}
+      <Dialog open={showDemo} onOpenChange={setShowDemo}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-semibold text-center">
+              AI 面试系统演示
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-8 py-4">
+            {/* 演示流程 */}
+            <div className="grid gap-6">
+              {/* 步骤 1 */}
+              <div className="flex gap-4 p-4 rounded-xl bg-neutral-50">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium text-neutral-900 mb-1">1. HR 创建面试</h3>
+                  <p className="text-sm text-neutral-500 mb-3">
+                    HR 在后台选择岗位模板，填写候选人信息，一键生成专属面试链接
+                  </p>
+                  <div className="rounded-lg overflow-hidden border border-neutral-200">
+                    <Image
+                      src="/demo/positions-management.png"
+                      alt="岗位管理后台"
+                      width={800}
+                      height={450}
+                      className="w-full h-auto"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 步骤 2 */}
+              <div className="flex gap-4 p-4 rounded-xl bg-neutral-50">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+                  <MessageSquare className="w-6 h-6 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium text-neutral-900 mb-1">2. 候选人语音面试</h3>
+                  <p className="text-sm text-neutral-500 mb-3">
+                    候选人打开链接，AI 面试官自动提问，支持语音实时对话
+                  </p>
+                  <div className="rounded-lg overflow-hidden border border-neutral-200">
+                    <Image
+                      src="/demo/interview-page.png"
+                      alt="候选人面试界面"
+                      width={800}
+                      height={450}
+                      className="w-full h-auto"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 步骤 3 */}
+              <div className="flex gap-4 p-4 rounded-xl bg-neutral-50">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                  <BarChart3 className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium text-neutral-900 mb-1">3. AI 智能评估</h3>
+                  <p className="text-sm text-neutral-500 mb-3">
+                    AI 实时分析回答内容，从多个维度进行专业评估
+                  </p>
+                  <div className="rounded-lg overflow-hidden border border-neutral-200">
+                    <Image
+                      src="/demo/interviews-management.png"
+                      alt="面试管理与评估"
+                      width={800}
+                      height={450}
+                      className="w-full h-auto"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 步骤 4 */}
+              <div className="flex gap-4 p-4 rounded-xl bg-neutral-50">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium text-neutral-900 mb-1">4. 生成面试报告</h3>
+                  <p className="text-sm text-neutral-500 mb-3">
+                    自动生成详细报告，包含评分、优势、风险点和录用建议
+                  </p>
+                  <div className="rounded-lg overflow-hidden border border-neutral-200">
+                    <Image
+                      src="/demo/dashboard-overview.png"
+                      alt="面试报告与数据概览"
+                      width={800}
+                      height={450}
+                      className="w-full h-auto"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="text-center pt-4 border-t border-neutral-100">
+              <p className="text-neutral-500 mb-4">立即体验 AI 面试系统</p>
+              <Link href="/login">
+                <Button
+                  className="bg-neutral-900 hover:bg-neutral-800 text-white px-8 h-11 rounded-full"
+                  onClick={() => setShowDemo(false)}
+                >
+                  开始使用
+                  <ArrowRight className="ml-2 w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* 页脚 */}
       <footer className="py-8 px-6 border-t border-neutral-100">

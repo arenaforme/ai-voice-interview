@@ -13,11 +13,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
+import { SimplePagination } from '@/components/ui/simple-pagination'
 
 interface Interview {
   id: string
   candidateName: string
   status: string
+  mode: 'MANUAL' | 'REALTIME'
   createdAt: string
   completedAt: string | null
   position: { name: string }
@@ -28,10 +30,13 @@ export default function InterviewsPage() {
   const [interviews, setInterviews] = useState<Interview[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const pageSize = 10
 
   useEffect(() => {
     fetchInterviews()
-  }, [statusFilter])
+  }, [statusFilter, currentPage])
 
   const fetchInterviews = async () => {
     setLoading(true)
@@ -40,15 +45,24 @@ export default function InterviewsPage() {
       if (statusFilter !== 'all') {
         params.set('status', statusFilter)
       }
+      params.set('page', currentPage.toString())
+      params.set('pageSize', pageSize.toString())
 
       const res = await fetch(`/api/interviews?${params}`)
       const data = await res.json()
       setInterviews(data.data || [])
+      setTotalPages(data.pagination?.totalPages || 1)
     } catch (error) {
       console.error('Failed to fetch interviews:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  // 筛选变化时重置页码
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value)
+    setCurrentPage(1)
   }
 
   const statusMap: Record<string, { label: string; color: string }> = {
@@ -67,7 +81,7 @@ export default function InterviewsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">面试管理</h1>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={handleStatusChange}>
           <SelectTrigger className="w-32">
             <SelectValue />
           </SelectTrigger>
@@ -105,6 +119,12 @@ export default function InterviewsPage() {
                       >
                         {statusMap[interview.status]?.label || interview.status}
                       </Badge>
+                      <Badge
+                        variant="outline"
+                        className={interview.mode === 'REALTIME' ? 'border-purple-500 text-purple-600' : ''}
+                      >
+                        {interview.mode === 'REALTIME' ? '实时语音' : '传统模式'}
+                      </Badge>
                       {interview.report && (
                         <Badge
                           className={
@@ -131,6 +151,11 @@ export default function InterviewsPage() {
               </CardContent>
             </Card>
           ))}
+          <SimplePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
     </div>

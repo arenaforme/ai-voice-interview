@@ -2,10 +2,11 @@
 
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Briefcase, Users, FileText, LogOut } from 'lucide-react'
+import { LayoutDashboard, Briefcase, Users, FileText, LogOut, Key, Loader2 } from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard', label: '概览', icon: LayoutDashboard },
@@ -19,8 +20,37 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const pathname = usePathname()
+  const router = useRouter()
+  const [checking, setChecking] = useState(true)
+
+  // 检查是否需要强制修改密码
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetch('/api/auth/check-password-status')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.mustChangePassword) {
+            router.push('/change-password')
+          } else {
+            setChecking(false)
+          }
+        })
+        .catch(() => setChecking(false))
+    } else if (status === 'unauthenticated') {
+      setChecking(false)
+    }
+  }, [status, router])
+
+  // 显示加载状态
+  if (checking || status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -31,14 +61,20 @@ export default function DashboardLayout({
             <div className="flex items-center">
               <span className="text-xl font-bold">AI 面试系统</span>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">
                 {session?.user?.name || session?.user?.email}
               </span>
+              <Link href="/change-password">
+                <Button variant="ghost" size="sm">
+                  <Key className="h-4 w-4 mr-2" />
+                  修改密码
+                </Button>
+              </Link>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => signOut({ callbackUrl: '/login' })}
+                onClick={() => signOut({ callbackUrl: '/' })}
               >
                 <LogOut className="h-4 w-4 mr-2" />
                 退出

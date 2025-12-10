@@ -20,7 +20,16 @@ interface Round {
   durationSeconds: number | null
 }
 
+interface QARecord {
+  dimension: string
+  question: string
+  answer: string
+  score: number
+  analysis: string
+}
+
 interface Report {
+  qaRecords?: QARecord[]
   dimensionScores: Record<string, number>
   strengths: string[]
   risks: string[]
@@ -217,6 +226,61 @@ export default function InterviewDetailPage({
                 {interview.report.summary}
               </p>
             </div>
+
+            {/* 问答记录（来自报告） */}
+            {interview.report.qaRecords &&
+              interview.report.qaRecords.length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="font-medium mb-4">问答记录与分析</h4>
+                    <div className="space-y-4">
+                      {interview.report.qaRecords.map((qa, index) => (
+                        <div
+                          key={index}
+                          className="border rounded-lg p-4 space-y-3"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">问题 {index + 1}</Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {qa.dimension}
+                            </span>
+                            <Badge variant="secondary">{qa.score}分</Badge>
+                          </div>
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-sm font-medium text-blue-600">
+                                面试官提问
+                              </p>
+                              <p className="text-sm bg-blue-50 p-2 rounded">
+                                {qa.question}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-green-600">
+                                候选人回答
+                              </p>
+                              <p className="text-sm bg-green-50 p-2 rounded">
+                                {qa.answer || '未回答'}
+                              </p>
+                            </div>
+                            {qa.analysis && (
+                              <div>
+                                <p className="text-sm font-medium text-orange-600">
+                                  AI 分析
+                                </p>
+                                <p className="text-sm bg-orange-50 p-2 rounded">
+                                  {qa.analysis}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
           </CardContent>
         </Card>
       )}

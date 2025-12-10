@@ -28,17 +28,18 @@ export default function DashboardPage() {
     try {
       const [positionsRes, interviewsRes] = await Promise.all([
         fetch('/api/positions'),
-        fetch('/api/interviews'),
+        fetch('/api/interviews?pageSize=1000'),  // 获取所有面试用于统计
       ])
 
       const positions = await positionsRes.json()
       const interviews = await interviewsRes.json()
 
       const interviewList = interviews.data || []
+      const totalInterviews = interviews.pagination?.total || interviewList.length
 
       setStats({
         totalPositions: positions.data?.length || 0,
-        totalInterviews: interviewList.length,
+        totalInterviews: totalInterviews,
         completedInterviews: interviewList.filter(
           (i: { status: string }) => i.status === 'COMPLETED'
         ).length,
